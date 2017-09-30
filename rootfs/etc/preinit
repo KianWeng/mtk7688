@@ -1,0 +1,65 @@
+#!/bin/sh
+# Copyright (C) 2006-2016 OpenWrt.org
+# Copyright (C) 2010 Vertical Communications
+
+[ -z "$PREINIT" ] && exec /sbin/init
+
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+
+. /lib/functions.sh
+. /lib/functions/preinit.sh
+. /lib/functions/system.sh
+
+boot_hook_init preinit_essential
+boot_hook_init preinit_main
+boot_hook_init failsafe
+boot_hook_init initramfs
+boot_hook_init preinit_mount_root
+
+for pi_source_file in /lib/preinit/*; do
+	. $pi_source_file
+done
+
+boot_run_hook preinit_essential
+
+pi_mount_skip_next=false
+pi_jffs2_mount_success=false
+pi_failsafe_net_message=false
+
+boot_run_hook preinit_main
+
+mount -t squashfs -o noatime /dev/mtdblock5 /rom/
+ln -fs /rom/usr/lib/modules /rom/usr/lib/firmware /lib/
+
+/sbin/modprobe leds-gpio
+system_led_path=$(uci get system.system_led.sysfs)
+echo timer > /sys/class/leds/${system_led_path}/trigger
+echo 700 > /sys/class/leds/${system_led_path}/delay_off
+echo 20 > /sys/class/leds/${system_led_path}/delay_on
+
+ln -fs /rom/usr/sbin/chat /rom/usr/sbin/pppd /usr/sbin
+ln -fs /rom/usr/lib/pppd /usr/lib
+
+ln -s /rom/usr/link_src/bin/* /bin/
+ln -s /rom/usr/link_src/sbin/* /sbin/
+ln -s /rom/usr/link_src/usr/bin/* /usr/bin/
+ln -s /rom/usr/link_src/usr/sbin/* /usr/sbin/
+ln -s /rom/strongswan_etc/* /etc/
+
+grep -q failsafe /proc/cmdline && exit 0
+
+mkdir -p /yy/app /yy/log /home
+mount -t jffs2 -o noatime /dev/mtdblock6 /yy/app
+mount -t jffs2 -o noatime /dev/mtdblock7 /yy/log
+
+/rom/usr/sbin/fw_printenv > /var/run/uboot-env
+
+grep -q '^YYTD_MAC=".*:.*:.*:.*:.*:.*"$' /var/run/uboot-env &&
+/sbin/ip link set eth0 address \
+$(grep '^YYTD_MAC=".*:.*:.*:.*:.*:.*"$' /var/run/uboot-env | \
+sed 's#YYTD_MAC="\(.*\)"#\1#')
+
+for source_file in $(ls /yy/app/preinit_hook-*.sh 2>/dev/null); do
+	. $source_file
+done
+

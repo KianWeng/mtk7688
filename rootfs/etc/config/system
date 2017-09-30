@@ -1,0 +1,36 @@
+
+config 'system' default
+	option hostname 'YYTD-7688'
+	option ttylogin '1'
+	option log_size '1024'
+	option urandom_seed '0'
+	option log_file '/var/log/messages'
+	option log_ip   '192.0.0.127'
+	option log_port  '1207'
+	option log_proto 'udp'
+	option log_hostname 'YYTD-7688'
+	option log_timestamp '1'
+	option log_local_port '1207'
+	option log_remote '0'
+	option timezone 'UTC'
+
+config 'led' system_led
+	option 'sysfs' 'omega2p:amber:system'
+	option 'trigger' 'heartbeat'
+
+config 'gpio_switch' 4G_PWR_CTRL
+	option 'gpio_pin' '1'
+	option 'name' '4G Power ON'
+	option 'value' '1'
+
+config 'gpio_switch' USB_MUX
+	option 'gpio_pin' '2'
+	option 'name' 'USB Multiplexer'
+	option 'value' '1'
+
+config 'timeserver' ntp
+	option enabled '0'
+	option enable_server '0'
+	list server '0.lede.pool.ntp.org'
+	list server '1.lede.pool.ntp.org'
+

@@ -1,0 +1,56 @@
+#!/bin/sh
+
+export LD_LIBRARY_PATH=/rom/usr/lib
+export PATH="/rom/usr/sbin:/rom/usr/bin:${PATH}"
+
+export MAGIC=/rom/usr/lib/magic.mgc
+
+/sbin/modprobe mtk_sd
+/sbin/modprobe ip_tables
+
+/usr/sbin/arping -b -q -c 30 192.0.0.66 &
+
+exec 1>&- 1>/dev/console
+exec 2>&- 2>/dev/console
+
+echo 1024 > /proc/sys/vm/min_free_kbytes
+echo 2 > /proc/sys/vm/dirty_ratio
+echo 1 > /proc/sys/vm/dirty_background_ratio
+echo 100 > /proc/sys/vm/dirty_expire_centisecs
+echo 50 > /proc/sys/vm/dirty_writeback_centisecs
+
+for source_file in $(ls /yy/app/pre_app_hook-*.sh 2>/dev/null); do
+	. $source_file
+done
+
+# start Pure-FTPd
+mkdir -p /media/sd/CASS/ALARM /media/sd/CASS/BACKUP /media/sd/CASS/STATE /media/sd/CASS/UPDATE
+mkdir -p /media/sd/CASS/FTP/CAMERA /media/sd/CASS/FTP/INFO /media/sd/CASS/FTP/PIC
+chown -R nobody /media/sd/CASS
+pure-pw mkdb /etc/pureftpd.pdb -f /rom/usr/lib/pureftpd.passwd
+pure-ftpd --notruncate --logpid --ipv4only --chrooteveryone \
+	--daemonize --maxclientsperip 8 --maxclientsnumber 7 --userbandwidth 8192 \
+	--displaydotfiles --noanonymous --dontresolve \
+	--maxidletime 10 --createhomedir --login puredb:/etc/pureftpd.pdb \
+	--antiwarez --allowdotfiles --customerproof
+
+grep -q failsafe /proc/cmdline && exit 0
+
+grep -q '^YYTD_ID=1.$' /var/run/uboot-env &&
+uci set system.4G_PWR_CTRL.active_low=1 && uci commit
+
+if [ -s /yy/app/start.sh ]; then
+	echo -e '\033[1;7m---> Go to /yy/app/start.sh ...\033[0m'
+	sh /yy/app/start.sh
+elif [ -s /rom/start.sh ]; then
+	echo -e '\033[1;7m---> Go to /rom/start.sh ...\033[0m'
+	sh /rom/start.sh
+else
+	echo -e '\033[1;7m---> No suitable start.sh found!\033[0m'
+fi
+
+for source_file in $(ls /yy/app/post_app_hook-*.sh 2>/dev/null); do
+	. $source_file
+done
+
+exit 0

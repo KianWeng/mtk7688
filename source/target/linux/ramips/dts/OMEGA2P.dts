@@ -1,0 +1,20 @@
+/dts-v1/;
+
+#include "OMEGA2.dtsi"
+
+/ {
+	model = "Onion Omega2+";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x08000000>; /* 0x04000000, 64MB is working fine */
+	};
+};
+
+&firmware {
+	reg = <0x50000 0xdb0000>;
+};
+
+&system_led {
+	label = "omega2p:amber:system";
+};

@@ -1,0 +1,32 @@
+#!/bin/sh
+
+RESOLV_CONF="/etc/resolv.conf"
+
+[ x"deconfig" = "x$1" ] && return 0
+
+[ x"static" = "x$(uci get network.lan.proto)" ] || return 0
+
+IFNAME=$(uci get network.lan.ifname)
+if [ $IFNAME = $interface ]; then
+	IPADDR=$(uci get network.lan.ipaddr)
+	NETMASK=$(uci get network.lan.netmask)
+
+	BROADCAST=$(/rom/usr/sbin/ipcalc.sh ${IPADDR} ${NETMASK} | grep 'BROADCAST=' | sed 's;BROADCAST=\(.*\);\1;')
+	PREFIX=$(/rom/usr/sbin/ipcalc.sh ${IPADDR} ${NETMASK} | grep 'PREFIX=' | sed 's;PREFIX=\(.*\);\1;')
+
+	echo "udhcpc.user: Reserve static ${IPADDR}/${PREFIX} brd ${BROADCAST} on ${IFNAME}"
+	logger -t udhcpc.user "Reserve static ${IPADDR}/${PREFIX} brd ${BROADCAST} on ${IFNAME}"
+	/sbin/ip addr add ${IPADDR}/${PREFIX} brd ${BROADCAST} dev ${IFNAME} > /dev/null 2>&1
+fi
+
+if [ ! -f /var/run/ignore_DHCP_DNS ]; then
+	echo -n > $RESOLV_CONF
+	[ -n "$domain" ] && echo search $domain >> $RESOLV_CONF
+	for i in $dns; do
+		echo nameserver $i >> $RESOLV_CONF
+		logger -t udhcpc.user "Add new DNS: $i to $RESOLV_CONF"
+	done
+else
+		logger -t udhcpc.user "Skip add new DNS to $RESOLV_CONF"
+fi
+

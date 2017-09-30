@@ -1,0 +1,16 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+STOP=99
+
+stop() {
+	[ -s /yy/app/stop.sh ] && . /yy/app/stop.sh 2>&1 | tee /dev/console
+	sync
+	for mounted_flash_blocks in $(grep '^/dev/mtdblock.* jffs2 .*' /proc/mounts | awk '{ print $1 }'); do
+		/bin/umount -r ${mounted_flash_blocks} && echo umount ${mounted_flash_blocks} fine || echo umount ${mounted_flash_blocks} failed!
+	done
+	for mounted_mmc_blocks in $(grep '^/dev/mmcblk.*' /proc/mounts | awk '{ print $1 }'); do
+		/bin/umount -r ${mounted_mmc_blocks} && echo umount ${mounted_mmc_blocks} fine || echo umount ${mounted_mmc_blocks} failed!
+	done
+}
+

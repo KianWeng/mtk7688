@@ -1,0 +1,48 @@
+#!/bin/sh
+
+ID_PATH=/yy/app/CASS/CONFIG/UniqueID.config
+system_led_path=$(uci get system.system_led.sysfs)
+
+case "$ACTION" in
+	pressed)
+		logger -t RECOVERY_BUTTON "pressed"
+		return 5
+		;;
+	timeout)
+		echo 11 > /sys/class/gpio/export
+
+		echo timer > /sys/class/leds/${system_led_path}/trigger
+		echo 50 > /sys/class/leds/${system_led_path}/delay_off
+		echo 50 > /sys/class/leds/${system_led_path}/delay_on
+
+		touch /var/run/reset_test
+
+		echo 1 > /sys/class/gpio/gpio11/value 
+		;;
+	released)
+		if [ "$SEEN" -ge 1 -a "$SEEN" -lt 5 ]; then
+			echo "REBOOT" > /dev/console
+			logger -t RECOVERY_BUTTON "REBOOT"
+			sync
+		elif [ "$SEEN" -ge 5 ]; then
+			[ -s ${ID_PATH} ] || {
+				logger -t RECOVERY_BUTTON "/yy/app/ is clean ..."
+				echo 0 > /sys/class/gpio/gpio11/value 
+				return 0
+			}
+
+			if [ $(sed 's;[0-9]\{6\}\([0-9]\{14\}\);\1;' ${ID_PATH}) = '00000000000000' ]; then
+				logger -t RECOVERY_BUTTON "Detected factory UniqueID , skip format /yy/app/ ..."
+				echo 0 > /sys/class/gpio/gpio11/value 
+				return 0
+			fi
+
+			echo "FACTORY RESET" > /dev/console
+			LD_LIBRARY_PATH=/rom/usr/lib/ PATH=/rom/usr/sbin:/rom/usr/bin:${PATH} jffs2mark -y
+			logger -t RECOVERY_BUTTON "FACTORY RESET"
+			reboot &
+		fi
+		;;
+esac
+
+return 0
