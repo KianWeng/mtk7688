@@ -104,7 +104,7 @@ extern unsigned int  CFG_BLOCKSIZE;
 
 //#define	CONFIG_TIMESTAMP		/* Print image info with timestamp */
 
-#define CONFIG_BOOTARGS "console=ttyS0,115200n8 quiet"
+#define CONFIG_BOOTARGS "console=ttyS0,115200n8"
 
 
 
